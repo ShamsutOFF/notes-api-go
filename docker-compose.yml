@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notesdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - notes-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - STORAGE_TYPE=postgres
+      - DATABASE_URL=host=postgres user=postgres password=postgres dbname=notesdb port=5432 sslmode=disable
+    volumes:
+      - ./storage:/root/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - notes-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  notes-network:
+    driver: bridge

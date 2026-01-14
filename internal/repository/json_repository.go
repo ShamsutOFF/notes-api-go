@@ -15,14 +15,6 @@ var (
 	ErrNoteNotFound = errors.New("note not found")
 )
 
-type NoteRepository interface {
-	Create(note *domain.Note) (*domain.Note, error)
-	GetAll() ([]*domain.Note, error)
-	GetByID(id int64) (*domain.Note, error)
-	Update(id int64, note *domain.Note) (*domain.Note, error)
-	Delete(id int64) error
-}
-
 // JSONRepository реализует хранение заметок в JSON файле
 type JSONRepository struct {
 	filename string
@@ -31,7 +23,7 @@ type JSONRepository struct {
 	nextID   int64
 }
 
-// NewJSONRepository создает новый репозиторий
+// NewJSONRepository создает новый JSON репозиторий
 func NewJSONRepository(filename string) (*JSONRepository, error) {
 	repo := &JSONRepository{
 		filename: filename,

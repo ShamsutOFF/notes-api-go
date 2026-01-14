@@ -7,11 +7,11 @@ import (
 
 // NoteService реализует бизнес-логику для работы с заметками
 type NoteService struct {
-	repo *repository.JSONRepository
+	repo repository.NoteRepository // Изменено на интерфейс!
 }
 
 // NewNoteService создает новый сервис
-func NewNoteService(repo *repository.JSONRepository) *NoteService {
+func NewNoteService(repo repository.NoteRepository) *NoteService { // Изменено на интерфейс!
 	return &NoteService{repo: repo}
 }
 
