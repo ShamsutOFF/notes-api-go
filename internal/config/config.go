@@ -1,38 +1,40 @@
 package config
 
 import (
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 )
 
+// Config содержит все настройки приложения
 type Config struct {
-	Port string
-
-	StorageType string // "json" or "postgres"
-
-	// JSON storage
-	StorageFile string
-
-	// PostgreSQL
-	DatabaseURL string
+	Port       string
+	Repository struct {
+		Type string
+		DSN  string
+		File string
+	}
 }
 
+// Load загружает конфигурацию из .env файла и переменных окружения
 func Load() *Config {
-	// Загружаем .env файл
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
-	}
+	// Пытаемся загрузить .env файл, но не падаем если его нет
+	_ = godotenv.Load()
 
-	return &Config{
-		Port:        getEnv("PORT", "8080"),
-		StorageType: getEnv("STORAGE_TYPE", "json"),
-		StorageFile: getEnv("STORAGE_FILE", "storage/notes.json"),
-		DatabaseURL: getEnv("DATABASE_URL", ""),
-	}
+	cfg := &Config{}
+
+	// Server config
+	cfg.Port = getEnv("PORT", "8080")
+
+	// Repository config
+	cfg.Repository.Type = getEnv("STORAGE_TYPE", "json")
+	cfg.Repository.DSN = os.Getenv("DATABASE_URL")
+	cfg.Repository.File = getEnv("STORAGE_FILE", "storage/notes.json")
+
+	return cfg
 }
 
+// getEnv возвращает значение переменной окружения или значение по умолчанию
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

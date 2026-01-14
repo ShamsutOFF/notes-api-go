@@ -3,91 +3,62 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"notes-api/internal/handler"
+	"notes-api/internal/app"
+	"notes-api/internal/config"
 	"notes-api/internal/repository"
-	"notes-api/internal/service"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Загружаем .env файл
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
+	// Загружаем конфигурацию
+	cfg := config.Load()
+
+	// Создаем репозиторий на основе конфигурации
+	repoCfg := repository.Config{
+		Type: cfg.Repository.Type,
+		DSN:  cfg.Repository.DSN,
+		File: cfg.Repository.File,
 	}
 
-	// Получаем тип хранилища из переменных окружения
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "" {
-		storageType = "json" // По умолчанию JSON
+	repo, err := repository.NewRepository(repoCfg)
+	if err != nil {
+		log.Fatalf("Failed to create repository: %v", err)
 	}
 
-	var repo repository.NoteRepository
-	var err error
-
-	switch storageType {
-	case "json":
-		// Конфигурация JSON хранилища
-		filename := os.Getenv("STORAGE_FILE")
-		if filename == "" {
-			filename = "storage/notes.json"
-		}
-
-		repo, err = repository.NewJSONRepository(filename)
-		if err != nil {
-			log.Fatalf("Failed to create JSON repository: %v", err)
-		}
-		log.Printf("Using JSON storage: %s", filename)
-
-	case "postgres":
-		// Конфигурация PostgreSQL
-		dsn := os.Getenv("DATABASE_URL")
-		if dsn == "" {
-			dsn = "host=postgres user=postgres password=postgres dbname=notesdb port=5432 sslmode=disable"
-		}
-
-		repo, err = repository.NewPostgresRepository(dsn)
-		if err != nil {
-			log.Fatalf("Failed to create PostgreSQL repository: %v", err)
-		}
-		log.Printf("Using PostgreSQL storage")
-
-	default:
-		log.Fatalf("Unsupported storage type: %s", storageType)
+	log.Printf("Using %s storage", cfg.Repository.Type)
+	if cfg.Repository.Type == "json" {
+		log.Printf("Storage file: %s", cfg.Repository.File)
 	}
 
-	// Создаем сервис
-	noteService := service.NewNoteService(repo)
+	// Создаем приложение с внедренной зависимостью
+	application := app.New(repo)
 
-	// Создаем обработчики
-	noteHandler := handler.NewNoteHandler(noteService)
+	// Настраиваем graceful shutdown
+	setupGracefulShutdown(application)
 
-	// Создаем Fiber приложение
-	app := fiber.New()
-
-	// Middleware для логирования
-	app.Use(logger.New())
-
-	// API маршруты
-	api := app.Group("/api")
-	api.Post("/notes", noteHandler.CreateNote)
-	api.Get("/notes", noteHandler.GetAllNotes)
-	api.Get("/notes/:id", noteHandler.GetNoteByID)
-	api.Put("/notes/:id", noteHandler.UpdateNote)
-	api.Delete("/notes/:id", noteHandler.DeleteNote)
-
-	// Настраиваем порт
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Server starting on :%s", port)
-
-	if err := app.Listen(":" + port); err != nil {
+	// Запускаем приложение
+	log.Printf("Server starting on :%s", cfg.Port)
+	if err := application.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// setupGracefulShutdown настраивает корректное завершение работы
+func setupGracefulShutdown(app *app.App) {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-quit
+		log.Println("Shutting down server...")
+
+		if err := app.Shutdown(); err != nil {
+			log.Fatalf("Error shutting down: %v", err)
+		}
+
+		log.Println("Server stopped")
+		os.Exit(0)
+	}()
 }

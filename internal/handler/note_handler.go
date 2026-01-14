@@ -3,9 +3,10 @@ package handler
 import (
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
 	"notes-api/internal/domain"
 	"notes-api/internal/service"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // NoteHandler обрабатывает HTTP запросы для заметок
