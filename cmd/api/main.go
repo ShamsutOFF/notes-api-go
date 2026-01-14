@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"test/internal/handler"
-	"test/internal/repository"
-	"test/internal/service"
+	"notes-api/internal/handler"
+	"notes-api/internal/repository"
+	"notes-api/internal/service"
 )
 
 func main() {

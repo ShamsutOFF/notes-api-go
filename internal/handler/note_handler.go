@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"notes-api/internal/domain"
+	"notes-api/internal/service"
+
 	"github.com/gorilla/mux"
-	"test/internal/domain"
-	"test/internal/service"
 )
 
 // NoteHandler обрабатывает HTTP запросы для заметок

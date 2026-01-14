@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"test/internal/domain"
+	"notes-api/internal/domain"
 )
 
 var (

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"test/internal/domain"
-	"test/internal/repository"
+	"notes-api/internal/domain"
+	"notes-api/internal/repository"
 )
 
 // NoteService реализует бизнес-логику для работы с заметками
