@@ -42,18 +42,52 @@ func (h *NoteHandler) CreateNote(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(note)
 }
 
-// GetAllNotes обрабатывает получение всех заметок
+// GetAllNotes обрабатывает получение всех заметок с пагинацией
 func (h *NoteHandler) GetAllNotes(c *fiber.Ctx) error {
-	// Получаем все заметки через сервис
-	notes, err := h.service.GetAllNotes()
+	// Получаем параметры пагинации из query string
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+	// Валидация параметров
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100 // Ограничиваем максимальный лимит
+	}
+
+	// Вычисляем offset
+	offset := (page - 1) * limit
+
+	// Получаем заметки через сервис с пагинацией
+	notes, total, err := h.service.GetAllNotes(limit, offset)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "internal server error",
 		})
 	}
 
-	// Возвращаем ответ
-	return c.JSON(notes)
+	// Рассчитываем метаданные пагинации
+	totalPages := 0
+	if total > 0 {
+		totalPages = (total + limit - 1) / limit // ceil деление
+	}
+
+	// Возвращаем ответ с пагинацией
+	return c.JSON(fiber.Map{
+		"data": notes,
+		"meta": fiber.Map{
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
+			"totalPages": totalPages,
+			"hasNext":    page < totalPages,
+			"hasPrev":    page > 1,
+		},
+	})
 }
 
 // GetNoteByID обрабатывает получение заметки по ID

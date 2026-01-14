@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -125,17 +126,36 @@ func (r *JSONRepository) Create(note *domain.Note) (*domain.Note, error) {
 	return note, nil
 }
 
-// GetAll возвращает все заметки
-func (r *JSONRepository) GetAll() ([]*domain.Note, error) {
+// GetAll возвращает заметки с пагинацией
+func (r *JSONRepository) GetAll(limit, offset int) ([]*domain.Note, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	notes := make([]*domain.Note, 0, len(r.notes))
+	// Общее количество записей
+	total := len(r.notes)
+
+	// Получаем все заметки в нужном порядке
+	allNotes := make([]*domain.Note, 0, len(r.notes))
 	for _, note := range r.notes {
-		notes = append(notes, note)
+		allNotes = append(allNotes, note)
 	}
 
-	return notes, nil
+	// Сортируем по created_at DESC (новые первыми)
+	sort.Slice(allNotes, func(i, j int) bool {
+		return allNotes[i].CreatedAt.After(allNotes[j].CreatedAt)
+	})
+
+	// Применяем пагинацию
+	start := offset
+	end := offset + limit
+	if start > len(allNotes) {
+		start = len(allNotes)
+	}
+	if end > len(allNotes) {
+		end = len(allNotes)
+	}
+
+	return allNotes[start:end], total, nil
 }
 
 // GetByID возвращает заметку по ID

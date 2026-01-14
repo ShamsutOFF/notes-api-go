@@ -32,9 +32,9 @@ func (s *NoteService) CreateNote(req domain.CreateNoteRequest) (*domain.Note, er
 	return s.repo.Create(note)
 }
 
-// GetAllNotes возвращает все заметки
-func (s *NoteService) GetAllNotes() ([]*domain.Note, error) {
-	return s.repo.GetAll()
+// GetAllNotes возвращает заметки с пагинацией
+func (s *NoteService) GetAllNotes(limit, offset int) ([]*domain.Note, int, error) {
+	return s.repo.GetAll(limit, offset)
 }
 
 // GetNoteByID возвращает заметку по ID

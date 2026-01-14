@@ -39,13 +39,22 @@ func (r *PostgresRepository) Create(note *domain.Note) (*domain.Note, error) {
 	return note, nil
 }
 
-func (r *PostgresRepository) GetAll() ([]*domain.Note, error) {
+func (r *PostgresRepository) GetAll(limit, offset int) ([]*domain.Note, int, error) {
 	var notes []*domain.Note
-	result := r.db.Order("created_at DESC").Find(&notes)
-	if result.Error != nil {
-		return nil, result.Error
+	var total int64
+
+	// Сначала получаем общее количество записей
+	if err := r.db.Model(&domain.Note{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return notes, nil
+
+	// Затем получаем данные с пагинацией
+	result := r.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&notes)
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	return notes, int(total), nil
 }
 
 func (r *PostgresRepository) GetByID(id int64) (*domain.Note, error) {

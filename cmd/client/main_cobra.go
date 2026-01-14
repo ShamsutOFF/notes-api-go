@@ -80,12 +80,24 @@ var createCmd = &cobra.Command{
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all notes",
+	Short: "List notes with pagination",
 	Run: func(cmd *cobra.Command, args []string) {
 		format, _ := cmd.Flags().GetString("format")
+		page, _ := cmd.Flags().GetInt("page")
 		limit, _ := cmd.Flags().GetInt("limit")
+		all, _ := cmd.Flags().GetBool("all")
 
-		resp, err := http.Get(baseURL)
+		// Создаем URL с query параметрами
+		url := baseURL
+		if all {
+			// Если нужны все записи, делаем большой limit
+			limit = 1000 // Максимальное количество для "всех"
+		}
+		if page > 0 || limit > 0 {
+			url = fmt.Sprintf("%s?page=%d&limit=%d", baseURL, page, limit)
+		}
+
+		resp, err := http.Get(url)
 		if err != nil {
 			fmt.Printf("Error sending request: %v\n", err)
 			os.Exit(1)
@@ -93,29 +105,60 @@ var listCmd = &cobra.Command{
 		defer resp.Body.Close()
 
 		handleResponse(resp, func(body []byte) {
-			var notes []domain.Note
-			if err := json.Unmarshal(body, &notes); err != nil {
+			// Новый формат ответа с пагинацией
+			var response struct {
+				Data []domain.Note `json:"data"`
+				Meta struct {
+					Page       int   `json:"page"`
+					Limit      int   `json:"limit"`
+					Total      int64 `json:"total"`
+					TotalPages int   `json:"totalPages"`
+					HasNext    bool  `json:"hasNext"`
+					HasPrev    bool  `json:"hasPrev"`
+				} `json:"meta"`
+			}
+
+			if err := json.Unmarshal(body, &response); err != nil {
 				fmt.Printf("Error parsing response: %v\n", err)
 				os.Exit(1)
 			}
 
-			if len(notes) == 0 {
+			if len(response.Data) == 0 {
 				fmt.Println("No notes found.")
 				return
 			}
 
-			if limit > 0 && limit < len(notes) {
-				notes = notes[:limit]
+			// Выводим информацию о пагинации
+			if !all {
+				fmt.Printf("Page %d/%d (Total: %d notes)\n",
+					response.Meta.Page,
+					response.Meta.TotalPages,
+					response.Meta.Total)
 			}
 
 			switch format {
 			case "json":
-				output, _ := json.MarshalIndent(notes, "", "  ")
+				output, _ := json.MarshalIndent(response, "", "  ")
 				fmt.Println(string(output))
 			case "table":
-				printNotesTable(notes)
+				printNotesTable(response.Data)
+			case "simple":
+				printNotesSimple(response.Data)
 			default:
-				printNotesTable(notes)
+				printNotesTable(response.Data)
+			}
+
+			// Показываем навигационные подсказки
+			if !all && (response.Meta.HasNext || response.Meta.HasPrev) {
+				fmt.Println("\nNavigation:")
+				if response.Meta.HasPrev {
+					fmt.Printf("  Previous page: client list --page %d --limit %d\n",
+						response.Meta.Page-1, response.Meta.Limit)
+				}
+				if response.Meta.HasNext {
+					fmt.Printf("  Next page: client list --page %d --limit %d\n",
+						response.Meta.Page+1, response.Meta.Limit)
+				}
 			}
 		}, http.StatusOK)
 	},
@@ -263,7 +306,7 @@ func handleResponse(resp *http.Response, successHandler func([]byte), expectedSt
 }
 
 func printNotesTable(notes []domain.Note) {
-	fmt.Printf("Total notes: %d\n\n", len(notes))
+	fmt.Printf("\nTotal notes in this page: %d\n\n", len(notes))
 	fmt.Println("ID  | Title                          | Created At          | Updated At")
 	fmt.Println("----|--------------------------------|---------------------|---------------------")
 
@@ -278,6 +321,16 @@ func printNotesTable(notes []domain.Note) {
 			title,
 			formatTime(note.CreatedAt),
 			formatTime(note.UpdatedAt))
+	}
+}
+
+func printNotesSimple(notes []domain.Note) {
+	for i, note := range notes {
+		title := note.Title
+		if len(title) > 50 {
+			title = title[:47] + "..."
+		}
+		fmt.Printf("%3d. [%d] %s\n", i+1, note.ID, title)
 	}
 }
 
@@ -296,6 +349,8 @@ func formatTime(t time.Time) string {
 }
 
 func init() {
-	listCmd.Flags().StringP("format", "f", "table", "Output format (table, json)")
-	listCmd.Flags().IntP("limit", "l", 0, "Limit number of notes to display")
+	listCmd.Flags().StringP("format", "f", "table", "Output format (table, json, simple)")
+	listCmd.Flags().IntP("page", "p", 1, "Page number")
+	listCmd.Flags().IntP("limit", "l", 10, "Number of notes per page")
+	listCmd.Flags().BoolP("all", "a", false, "Show all notes (overrides page/limit)")
 }
