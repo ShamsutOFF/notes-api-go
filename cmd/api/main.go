@@ -2,10 +2,10 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"notes-api/internal/handler"
 	"notes-api/internal/repository"
 	"notes-api/internal/service"
@@ -30,21 +30,21 @@ func main() {
 	// Создаем обработчики
 	noteHandler := handler.NewNoteHandler(noteService)
 
-	// Настраиваем маршрутизатор
-	r := mux.NewRouter()
-
-	// API маршруты
-	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/notes", noteHandler.CreateNote).Methods("POST")
-	api.HandleFunc("/notes", noteHandler.GetAllNotes).Methods("GET")
-	api.HandleFunc("/notes/{id}", noteHandler.GetNoteByID).Methods("GET")
-	api.HandleFunc("/notes/{id}", noteHandler.UpdateNote).Methods("PUT")
-	api.HandleFunc("/notes/{id}", noteHandler.DeleteNote).Methods("DELETE")
+	// Создаем Fiber приложение
+	app := fiber.New()
 
 	// Middleware для логирования
-	r.Use(loggingMiddleware)
+	app.Use(logger.New())
 
-	// Настраиваем сервер
+	// API маршруты
+	api := app.Group("/api")
+	api.Post("/notes", noteHandler.CreateNote)
+	api.Get("/notes", noteHandler.GetAllNotes)
+	api.Get("/notes/:id", noteHandler.GetNoteByID)
+	api.Put("/notes/:id", noteHandler.UpdateNote)
+	api.Delete("/notes/:id", noteHandler.DeleteNote)
+
+	// Настраиваем порт
 	port := ":8080"
 	if os.Getenv("PORT") != "" {
 		port = ":" + os.Getenv("PORT")
@@ -53,15 +53,7 @@ func main() {
 	log.Printf("Server starting on port %s", port)
 	log.Printf("Storage file: %s", filename)
 
-	if err := http.ListenAndServe(port, r); err != nil {
+	if err := app.Listen(port); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
-}
-
-// loggingMiddleware логирует HTTP запросы
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
-	})
 }

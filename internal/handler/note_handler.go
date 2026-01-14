@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"encoding/json"
-	"net/http"
 	"strconv"
 
+	"github.com/gofiber/fiber/v2"
 	"notes-api/internal/domain"
 	"notes-api/internal/service"
-
-	"github.com/gorilla/mux"
 )
 
 // NoteHandler обрабатывает HTTP запросы для заметок
@@ -22,138 +19,133 @@ func NewNoteHandler(service *service.NoteService) *NoteHandler {
 }
 
 // CreateNote обрабатывает создание заметки
-func (h *NoteHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) CreateNote(c *fiber.Ctx) error {
 	var req domain.CreateNoteRequest
 
 	// Парсим JSON тело запроса
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid request body",
+		})
 	}
 
 	// Создаем заметку через сервис
 	note, err := h.service.CreateNote(req)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	// Возвращаем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(note)
+	return c.Status(fiber.StatusCreated).JSON(note)
 }
 
 // GetAllNotes обрабатывает получение всех заметок
-func (h *NoteHandler) GetAllNotes(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) GetAllNotes(c *fiber.Ctx) error {
 	// Получаем все заметки через сервис
 	notes, err := h.service.GetAllNotes()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal server error")
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "internal server error",
+		})
 	}
 
 	// Возвращаем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(notes)
+	return c.JSON(notes)
 }
 
 // GetNoteByID обрабатывает получение заметки по ID
-func (h *NoteHandler) GetNoteByID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func (h *NoteHandler) GetNoteByID(c *fiber.Ctx) error {
+	idStr := c.Params("id")
 
 	// Парсим ID
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid note ID")
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid note ID",
+		})
 	}
 
 	// Получаем заметку через сервис
 	note, err := h.service.GetNoteByID(id)
 	if err != nil {
 		if err.Error() == "note not found" {
-			writeError(w, http.StatusNotFound, "note not found")
-		} else {
-			writeError(w, http.StatusInternalServerError, "internal server error")
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "note not found",
+			})
 		}
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "internal server error",
+		})
 	}
 
 	// Возвращаем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(note)
+	return c.JSON(note)
 }
 
 // UpdateNote обрабатывает обновление заметки
-func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func (h *NoteHandler) UpdateNote(c *fiber.Ctx) error {
+	idStr := c.Params("id")
 
 	// Парсим ID
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid note ID")
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid note ID",
+		})
 	}
 
 	var req domain.UpdateNoteRequest
 
 	// Парсим JSON тело запроса
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid request body",
+		})
 	}
 
 	// Обновляем заметку через сервис
 	note, err := h.service.UpdateNote(id, req)
 	if err != nil {
 		if err.Error() == "note not found" {
-			writeError(w, http.StatusNotFound, "note not found")
-		} else {
-			writeError(w, http.StatusBadRequest, err.Error())
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "note not found",
+			})
 		}
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	// Возвращаем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(note)
+	return c.JSON(note)
 }
 
 // DeleteNote обрабатывает удаление заметки
-func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func (h *NoteHandler) DeleteNote(c *fiber.Ctx) error {
+	idStr := c.Params("id")
 
 	// Парсим ID
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid note ID")
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid note ID",
+		})
 	}
 
 	// Удаляем заметку через сервис
 	if err := h.service.DeleteNote(id); err != nil {
 		if err.Error() == "note not found" {
-			writeError(w, http.StatusNotFound, "note not found")
-		} else {
-			writeError(w, http.StatusInternalServerError, "internal server error")
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "note not found",
+			})
 		}
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "internal server error",
+		})
 	}
 
 	// Возвращаем пустой ответ с кодом 200
-	w.WriteHeader(http.StatusOK)
-}
-
-// writeError записывает ошибку в ответ
-func writeError(w http.ResponseWriter, code int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	return c.SendStatus(fiber.StatusOK)
 }
