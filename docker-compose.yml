@@ -22,9 +22,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
-      - PORT=8080
+      - PORT=8081
       - STORAGE_TYPE=postgres
       - DATABASE_URL=host=postgres user=postgres password=postgres dbname=notesdb port=5432 sslmode=disable
     volumes:

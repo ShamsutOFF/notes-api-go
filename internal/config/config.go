@@ -24,7 +24,7 @@ func Load() *Config {
 	cfg := &Config{}
 
 	// Server config
-	cfg.Port = getEnv("PORT", "8080")
+	cfg.Port = getEnv("PORT", "8081")
 
 	// Repository config
 	cfg.Repository.Type = getEnv("STORAGE_TYPE", "json")

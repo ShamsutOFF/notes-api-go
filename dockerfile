@@ -28,7 +28,7 @@ COPY --from=builder /app/main .
 RUN mkdir -p /root/storage
 
 # Экспонируем порт
-EXPOSE 8080
+EXPOSE 8081
 
 # Запускаем приложение
 CMD ["./main"]

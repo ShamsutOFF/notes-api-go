@@ -34,7 +34,7 @@ make build-all
 make run
 ```
 
-Сервер будет доступен по адресу: http://localhost:8080
+Сервер будет доступен по адресу: http://localhost:8081
 
 API Endpoints
 POST /api/notes - Создать заметку
